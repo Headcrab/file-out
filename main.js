@@ -27,10 +27,10 @@ __export(main_exports, {
   default: () => MainPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/FileTablePlugin.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/services/FileService.ts
 var import_obsidian = require("obsidian");
@@ -264,6 +264,7 @@ var FileTable = class extends import_obsidian3.Component {
 
 // src/ui/SettingsTab.ts
 var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var SettingsTab = class extends import_obsidian4.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -284,6 +285,42 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
       this.plugin.settings.openLocation = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian4.Setting(containerEl).setName("CSS \u0444\u0430\u0439\u043B").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 CSS \u0444\u0430\u0439\u043B \u0434\u043B\u044F \u0441\u0442\u0438\u043B\u0438\u0437\u0430\u0446\u0438\u0438 \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u0444\u0430\u0439\u043B\u043E\u0432").addDropdown(async (dropdown) => {
+      const cssFiles = await this.getCSSFiles();
+      cssFiles.forEach((file) => {
+        dropdown.addOption(file, file);
+      });
+      dropdown.setValue(this.plugin.settings.cssFile);
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.cssFile = value;
+        await this.plugin.saveSettings();
+      });
+    });
+  }
+  async getCSSFiles() {
+    const cssFiles = [];
+    const pluginDir = (0, import_obsidian5.normalizePath)(this.app.vault.configDir + "/plugins/file-table-plugin");
+    try {
+      const pluginFiles = await this.app.vault.adapter.list(pluginDir);
+      pluginFiles.files.filter((file) => file.endsWith(".css")).forEach((file) => cssFiles.push((0, import_obsidian5.normalizePath)(file)));
+    } catch (error) {
+      console.error("Failed to read plugin directory:", error);
+    }
+    const iterateFolder = (folder) => {
+      folder.children.forEach((child) => {
+        if (child instanceof import_obsidian4.TFolder) {
+          iterateFolder(child);
+        } else if (child instanceof import_obsidian4.TFile && child.extension === "css") {
+          cssFiles.push(child.path);
+        }
+      });
+    };
+    iterateFolder(this.app.vault.getRoot());
+    cssFiles.push("styles.css");
+    cssFiles.push("altstyles.css");
+    const uniqueCssFiles = Array.from(new Set(cssFiles)).sort();
+    console.log("Available CSS files:", uniqueCssFiles);
+    return uniqueCssFiles;
   }
 };
 
@@ -291,9 +328,14 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
 var DEFAULT_SETTINGS = {
   fileExtensions: ["pdf", "cdr", "eps", "png", "jpg", "doc", "docx"],
   groupByFolder: true,
-  openLocation: "right"
+  openLocation: "right",
+  cssFile: "styles.css"
 };
-var FileTablePlugin = class extends import_obsidian5.Plugin {
+var FileTablePlugin = class extends import_obsidian6.Plugin {
+  constructor() {
+    super(...arguments);
+    this.currentStyleElement = null;
+  }
   async onload() {
     await this.loadSettings();
     this.fileService = new FileService(this.app.vault, this.app);
@@ -313,12 +355,37 @@ var FileTablePlugin = class extends import_obsidian5.Plugin {
     this.registerEvent(this.app.vault.on("delete", () => this.updateFileTable()));
     this.registerEvent(this.app.vault.on("rename", () => this.updateFileTable()));
     this.registerEvent(this.app.vault.on("modify", () => this.updateFileTable()));
+    await this.loadSelectedCSS();
+  }
+  async loadSelectedCSS() {
+    if (this.currentStyleElement) {
+      this.currentStyleElement.remove();
+    }
+    let cssContent;
+    try {
+      const cssPath = (0, import_obsidian6.normalizePath)(this.manifest.dir + "/" + this.settings.cssFile);
+      cssContent = await this.app.vault.adapter.read(cssPath);
+    } catch (error) {
+      console.error(`Failed to load CSS file: ${this.settings.cssFile}`, error);
+      cssContent = await this.loadDefaultCSS();
+    }
+    this.currentStyleElement = document.createElement("style");
+    this.currentStyleElement.textContent = cssContent;
+    document.head.appendChild(this.currentStyleElement);
+  }
+  async loadDefaultCSS() {
+    return `
+      .file-table-container { /* Default styles */ }
+      .file-table { /* Default styles */ }
+      /* Add more default styles here */
+    `;
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
   async saveSettings() {
     await this.saveData(this.settings);
+    await this.loadSelectedCSS();
     this.updateFileTable();
   }
   async updateFileTable() {
@@ -348,7 +415,7 @@ var FileTablePlugin = class extends import_obsidian5.Plugin {
   }
 };
 var FILE_TABLE_VIEW_TYPE = "file-table-view";
-var FileTableView = class extends import_obsidian5.ItemView {
+var FileTableView = class extends import_obsidian6.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -378,7 +445,7 @@ var FileTableView = class extends import_obsidian5.ItemView {
 };
 
 // src/main.ts
-var MainPlugin = class extends import_obsidian6.Plugin {
+var MainPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     this.fileTablePlugin = new FileTablePlugin(this.app, this.manifest);
     await this.fileTablePlugin.onload();

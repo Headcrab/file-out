@@ -9,5 +9,7 @@
     "docx"
   ],
   "groupByFolder": true,
-  "openLocation": "main"
+  "openLocation": "main",
+  "cssFile": "altstyles.css",
+  "cssStyle": "default"
 }

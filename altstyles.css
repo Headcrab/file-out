@@ -1,0 +1,75 @@
+.file-table-container {
+  padding: 15px;
+  background-color: var(--background-secondary);
+  border-radius: 10px;
+}
+
+.file-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  font-size: 14px;
+}
+
+.file-table th,
+.file-table td {
+  padding: 12px;
+  border: none;
+}
+
+.file-table th {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: bold;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.file-table th:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.file-table th input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 5px;
+  padding: 5px;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.file-table th button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-on-accent);
+}
+
+.file-table tr {
+  background-color: var(--background-primary);
+  transition: background-color 0.3s ease;
+}
+
+.file-table tr:hover {
+  background-color: var(--background-primary-alt);
+}
+
+.folder-header {
+  background-color: var(--background-secondary-alt);
+  font-weight: bold;
+  color: var(--text-accent);
+}
+
+.sort-indicator::after {
+  content: ' ▲';
+  font-size: 12px;
+}
+
+.sort-indicator.desc::after {
+  content: ' ▼';
+}
