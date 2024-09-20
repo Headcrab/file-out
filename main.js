@@ -157,7 +157,7 @@ var FolderService = class {
 // src/ui/FileTable.ts
 var import_obsidian3 = require("obsidian");
 var FileTable = class extends import_obsidian3.Component {
-  constructor(containerEl, onFileOpen) {
+  constructor(containerEl, onFileOpen, plugin) {
     super();
     this.containerEl = containerEl;
     this.onFileOpen = onFileOpen;
@@ -171,6 +171,8 @@ var FileTable = class extends import_obsidian3.Component {
     this.currentFolder = "";
     this.allFolders = [];
     this.folderHistory = [];
+    this.currentHistoryIndex = -1;
+    this.plugin = plugin;
     this.render();
   }
   setFiles(files) {
@@ -185,28 +187,49 @@ var FileTable = class extends import_obsidian3.Component {
     this.applyFiltersAndSort();
     this.renderBody();
   }
-  setFolderFilter(folder) {
+  setFolderFilter(folder, addToHistory = true) {
     if (folder !== this.currentFolder) {
-      this.folderHistory.push(this.currentFolder);
+      if (addToHistory) {
+        if (this.currentHistoryIndex < this.folderHistory.length - 1) {
+          this.folderHistory = this.folderHistory.slice(0, this.currentHistoryIndex + 1);
+        }
+        this.folderHistory.push(this.currentFolder);
+        this.currentHistoryIndex = this.folderHistory.length - 1;
+      }
       this.currentFolder = folder;
       this.applyFiltersAndSort();
       this.renderBody();
       this.updateFolderDropdown();
+      this.updateNavigationButtons();
     }
   }
   render() {
     this.containerEl.empty();
     this.containerEl.addClass("file-table-container");
     const controlsEl = this.containerEl.createDiv({ cls: "file-table-controls" });
-    this.renderBackButton(controlsEl);
+    this.renderNavigationButtons(controlsEl);
     this.renderFolderDropdown(controlsEl);
     const tableWrapper = this.containerEl.createEl("div", { cls: "file-table-wrapper" });
     const table = tableWrapper.createEl("table", { cls: "file-table" });
     this.renderHeader(table);
     this.renderBody(table);
   }
-  renderBackButton(containerEl) {
-    this.backButton = new import_obsidian3.ButtonComponent(containerEl).setButtonText("\u041D\u0430\u0437\u0430\u0434").onClick(() => this.goBack()).setDisabled(true);
+  renderNavigationButtons(containerEl) {
+    const navigationEl = containerEl.createDiv({ cls: "file-table-navigation" });
+    this.backButton = new import_obsidian3.ButtonComponent(navigationEl).setIcon("arrow-left").setTooltip("\u041D\u0430\u0437\u0430\u0434").onClick(() => this.navigateHistory(-1)).setDisabled(true);
+    this.forwardButton = new import_obsidian3.ButtonComponent(navigationEl).setIcon("arrow-right").setTooltip("\u0412\u043F\u0435\u0440\u0435\u0434").onClick(() => this.navigateHistory(1)).setDisabled(true);
+    this.homeButton = new import_obsidian3.ButtonComponent(navigationEl).setIcon("home").setTooltip("\u0414\u043E\u043C\u043E\u0439").onClick(() => this.goHome());
+  }
+  navigateHistory(step) {
+    const newIndex = this.currentHistoryIndex + step;
+    if (newIndex >= 0 && newIndex < this.folderHistory.length) {
+      this.currentHistoryIndex = newIndex;
+      this.setFolderFilter(this.folderHistory[this.currentHistoryIndex], false);
+      this.updateNavigationButtons();
+    }
+  }
+  goHome() {
+    this.setFolderFilter("", true);
   }
   renderFolderDropdown(containerEl) {
     const folderSelectEl = containerEl.createDiv({ cls: "folder-select" });
@@ -233,7 +256,10 @@ var FileTable = class extends import_obsidian3.Component {
       }
     });
     this.folderDropdown.setValue(this.currentFolder);
-    this.backButton.setDisabled(this.folderHistory.length === 0);
+  }
+  updateNavigationButtons() {
+    this.backButton.setDisabled(this.currentHistoryIndex <= 0);
+    this.forwardButton.setDisabled(this.currentHistoryIndex >= this.folderHistory.length - 1);
   }
   renderHeader(table) {
     const thead = table.createTHead();
@@ -273,6 +299,22 @@ var FileTable = class extends import_obsidian3.Component {
             const folderName = folder.split("/").pop() || folder;
             folderCell.createSpan({ text: folderName, cls: "folder-name" });
             folderCell.createSpan({ text: ` (${folder})`, cls: "folder-path" });
+          }
+          if (folder !== "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B" && folder !== "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430") {
+            const ignoreButton = folderCell.createEl("span", { cls: "ignore-folder-button" });
+            (0, import_obsidian3.setIcon)(ignoreButton, "cross");
+            ignoreButton.title = "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u0438\u0433\u043D\u043E\u0440\u0438\u0440\u0443\u0435\u043C\u044B\u0435";
+            ignoreButton.style.cursor = "pointer";
+            ignoreButton.style.marginLeft = "10px";
+            ignoreButton.onclick = async (e) => {
+              e.stopPropagation();
+              if (!this.plugin.settings.ignoredFolders.includes(folder)) {
+                this.plugin.settings.ignoredFolders.push(folder);
+                await this.plugin.saveSettings();
+                this.applyFiltersAndSort();
+                this.renderBody();
+              }
+            };
           }
         }
         files.forEach((file) => {
@@ -422,7 +464,9 @@ var FileTable = class extends import_obsidian3.Component {
           return this.formatFileSize(fileValue).toLowerCase().includes(filterValue.toLowerCase());
         }
         return fileValue.toString().toLowerCase().includes(filterValue.toLowerCase());
-      }) && (this.currentFolder === "" || file.folder === this.currentFolder)
+      }) && (this.currentFolder === "" || file.folder === this.currentFolder) && !this.plugin.settings.ignoredFolders.some(
+        (ignoredFolder) => file.folder === ignoredFolder || file.folder.startsWith(ignoredFolder + "/")
+      )
     );
     this.filteredFiles.sort((a, b) => {
       const aValue = a[this.sortColumn];
@@ -440,15 +484,6 @@ var FileTable = class extends import_obsidian3.Component {
   }
   getFilesInFolder(folderPath) {
     return this.files.filter((file) => file.folder === folderPath);
-  }
-  goBack() {
-    if (this.folderHistory.length > 0) {
-      const previousFolder = this.folderHistory.pop();
-      this.currentFolder = previousFolder;
-      this.applyFiltersAndSort();
-      this.renderBody();
-      this.updateFolderDropdown();
-    }
   }
   removeAllTooltips() {
     document.querySelectorAll(".folder-preview-tooltip").forEach((el) => el.remove());
@@ -477,6 +512,8 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.createEl("h2", { text: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 File Table Plugin" });
+    containerEl.createEl("h3", { text: "\u041E\u0441\u043D\u043E\u0432\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438" });
     new import_obsidian4.Setting(containerEl).setName("\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432").setDesc("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432 \u0447\u0435\u0440\u0435\u0437 \u0437\u0430\u043F\u044F\u0442\u0443\u044E (\u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: pdf,cdr,eps)").addText((text) => text.setPlaceholder("pdf,cdr,eps").setValue(this.plugin.settings.fileExtensions.join(",")).onChange(async (value) => {
       this.plugin.settings.fileExtensions = value.split(",").map((ext) => ext.trim());
       await this.plugin.saveSettings();
@@ -485,6 +522,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
       this.plugin.settings.groupByFolder = value;
       await this.plugin.saveSettings();
     }));
+    containerEl.createEl("h3", { text: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435" });
     new import_obsidian4.Setting(containerEl).setName("\u041C\u0435\u0441\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u044F").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0433\u0434\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C \u0442\u0430\u0431\u043B\u0438\u0446\u0443 \u0444\u0430\u0439\u043B\u043E\u0432").addDropdown((dropdown) => dropdown.addOption("left", "\u0421\u043B\u0435\u0432\u0430").addOption("right", "\u0421\u043F\u0440\u0430\u0432\u0430").addOption("main", "\u0412 \u0433\u043B\u0430\u0432\u043D\u043E\u043C \u043E\u043A\u043D\u0435").setValue(this.plugin.settings.openLocation).onChange(async (value) => {
       this.plugin.settings.openLocation = value;
       await this.plugin.saveSettings();
@@ -500,22 +538,55 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian4.Setting(containerEl).setName("\u0421\u043A\u0430\u043D\u0438\u0440\u0443\u0435\u043C\u044B\u0435 \u043F\u0430\u043F\u043A\u0438").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0438 \u0434\u043B\u044F \u0441\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F").addButton((button) => button.setButtonText("\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443").onClick(() => {
+    containerEl.createEl("h3", { text: "\u0423\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u043F\u0430\u043F\u043A\u0430\u043C\u0438" });
+    this.renderFolderSection(
+      "\u0421\u043A\u0430\u043D\u0438\u0440\u0443\u0435\u043C\u044B\u0435 \u043F\u0430\u043F\u043A\u0438",
+      this.plugin.settings.scannedFolders,
+      (folder) => this.addScannedFolder(folder),
+      (folder) => this.removeScannedFolder(folder)
+    );
+    containerEl.createEl("hr");
+    this.renderFolderSection(
+      "\u0418\u0433\u043D\u043E\u0440\u0438\u0440\u0443\u0435\u043C\u044B\u0435 \u043F\u0430\u043F\u043A\u0438",
+      this.plugin.settings.ignoredFolders,
+      (folder) => this.addIgnoredFolder(folder),
+      (folder) => this.removeIgnoredFolder(folder)
+    );
+  }
+  renderFolderSection(title, folders, addCallback, removeCallback) {
+    const sectionEl = this.containerEl.createEl("div", { cls: "folder-section" });
+    new import_obsidian4.Setting(sectionEl).setName(title).setDesc(`\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0438 \u0434\u043B\u044F ${title.toLowerCase()}`).addButton((button) => button.setButtonText("\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443").onClick(() => {
       new FolderSuggestModal(this.app, (folder) => {
-        if (!this.plugin.settings.scannedFolders.includes(folder)) {
-          this.plugin.settings.scannedFolders.push(folder);
-          this.plugin.saveSettings();
-          this.display();
-        }
+        addCallback(folder);
       }).open();
     }));
-    this.plugin.settings.scannedFolders.forEach((folder) => {
-      new import_obsidian4.Setting(containerEl).setName(folder || "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430").addButton((button) => button.setButtonText("\u0423\u0434\u0430\u043B\u0438\u0442\u044C").onClick(async () => {
-        this.plugin.settings.scannedFolders = this.plugin.settings.scannedFolders.filter((f) => f !== folder);
-        await this.plugin.saveSettings();
-        this.display();
-      }));
+    folders.forEach((folder) => {
+      new import_obsidian4.Setting(sectionEl).setName(folder || "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430").addButton((button) => button.setIcon("trash").setTooltip(`\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0438\u0437 ${title.toLowerCase()}`).onClick(() => removeCallback(folder)));
     });
+  }
+  addScannedFolder(folder) {
+    if (!this.plugin.settings.scannedFolders.includes(folder)) {
+      this.plugin.settings.scannedFolders.push(folder);
+      this.plugin.saveSettings();
+      this.display();
+    }
+  }
+  removeScannedFolder(folder) {
+    this.plugin.settings.scannedFolders = this.plugin.settings.scannedFolders.filter((f) => f !== folder);
+    this.plugin.saveSettings();
+    this.display();
+  }
+  addIgnoredFolder(folder) {
+    if (!this.plugin.settings.ignoredFolders.includes(folder)) {
+      this.plugin.settings.ignoredFolders.push(folder);
+      this.plugin.saveSettings();
+      this.display();
+    }
+  }
+  removeIgnoredFolder(folder) {
+    this.plugin.settings.ignoredFolders = this.plugin.settings.ignoredFolders.filter((f) => f !== folder);
+    this.plugin.saveSettings();
+    this.display();
   }
   async getCSSFiles() {
     const cssFiles = [];
@@ -600,12 +671,13 @@ var FolderFilterModal = class extends import_obsidian6.FuzzySuggestModal {
 
 // src/FileTablePlugin.ts
 var DEFAULT_SETTINGS = {
-  fileExtensions: ["pdf", "cdr", "eps", "png", "jpg", "doc", "docx"],
-  groupByFolder: true,
+  fileExtensions: ["pdf", "cdr", "eps"],
+  groupByFolder: false,
   openLocation: "right",
   cssFile: "styles.css",
-  scannedFolders: [""]
-  // Пустая строка означает корневую папку
+  scannedFolders: [],
+  ignoredFolders: []
+  // Инициализация пустым массивом
 };
 var FileTablePlugin = class extends import_obsidian7.Plugin {
   constructor() {
@@ -686,7 +758,12 @@ var FileTablePlugin = class extends import_obsidian7.Plugin {
     const allFiles = [];
     for (const folder of this.settings.scannedFolders) {
       const files = await this.fileService.getFilesInFolder(folder, this.settings.fileExtensions);
-      allFiles.push(...files);
+      const filteredFiles = files.filter(
+        (file) => !this.settings.ignoredFolders.some(
+          (ignoredFolder) => file.folder === ignoredFolder || file.folder.startsWith(ignoredFolder + "/")
+        )
+      );
+      allFiles.push(...filteredFiles);
     }
     return allFiles;
   }
@@ -723,7 +800,7 @@ var FileTableView = class extends import_obsidian7.ItemView {
     return "File Table";
   }
   async onOpen() {
-    this.fileTable = new FileTable(this.containerEl, (path) => this.plugin.openFile(path));
+    this.fileTable = new FileTable(this.containerEl, (path) => this.plugin.openFile(path), this.plugin);
     await this.updateFileTable();
   }
   async onClose() {
@@ -732,6 +809,11 @@ var FileTableView = class extends import_obsidian7.ItemView {
     if (!files) {
       files = await this.plugin.getAllFilesInScannedFolders();
     }
+    files = files.filter(
+      (file) => !this.plugin.settings.ignoredFolders.some(
+        (ignoredFolder) => file.folder === ignoredFolder || file.folder.startsWith(ignoredFolder + "/")
+      )
+    );
     if (groupByFolder === void 0) {
       groupByFolder = this.plugin.settings.groupByFolder;
     }

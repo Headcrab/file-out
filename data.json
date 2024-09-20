@@ -16,6 +16,10 @@
   "scannedFolders": [
     ""
   ],
+  "ignoredFolders": [
+    "Книги/Zvezdnyy_labirint/Дашков. Мечты сбываются",
+    "Книги/Серия книг Проект Этногенез"
+  ],
   "folderFilterHotkey": "ctrl + alt +e",
   "cssStyle": "default"
 }
