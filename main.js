@@ -89,7 +89,7 @@ var FileService = class {
   }
   async getFilesInFolder(folderPath, extensions) {
     const files = this.vault.getFiles().filter((file) => {
-      const isInFolder = file.path.startsWith(folderPath);
+      const isInFolder = folderPath === "" || file.path.startsWith(folderPath);
       const hasCorrectExtension = extensions.includes(file.extension);
       return isInFolder && hasCorrectExtension;
     });
@@ -105,7 +105,14 @@ var FileService = class {
   openFile(path) {
     const file = this.vault.getAbstractFileByPath(path);
     if (file instanceof import_obsidian.TFile) {
-      const leaf = this.getLeaf();
+      const extension = file.extension.toLowerCase();
+      const isImageOrPdf = ["png", "jpg", "jpeg", "gif", "bmp", "svg", "pdf"].includes(extension);
+      let leaf;
+      if (isImageOrPdf) {
+        leaf = this.app.workspace.getLeaf("tab");
+      } else {
+        leaf = this.getLeaf();
+      }
       leaf.openFile(file, { active: true });
     }
   }
@@ -358,6 +365,27 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian4.Setting(containerEl).setName("\u0421\u043A\u0430\u043D\u0438\u0440\u0443\u0435\u043C\u044B\u0435 \u043F\u0430\u043F\u043A\u0438").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0438 \u0434\u043B\u044F \u0441\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F").addDropdown(async (dropdown) => {
+      const folders = this.getFolders();
+      folders.forEach((folder) => {
+        dropdown.addOption(folder.path, folder.name);
+      });
+      dropdown.setValue("");
+      dropdown.onChange(async (value) => {
+        if (!this.plugin.settings.scannedFolders.includes(value)) {
+          this.plugin.settings.scannedFolders.push(value);
+          await this.plugin.saveSettings();
+          this.display();
+        }
+      });
+    });
+    this.plugin.settings.scannedFolders.forEach((folder) => {
+      new import_obsidian4.Setting(containerEl).setName(folder || "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430").addButton((button) => button.setButtonText("\u0423\u0434\u0430\u043B\u0438\u0442\u044C").onClick(async () => {
+        this.plugin.settings.scannedFolders = this.plugin.settings.scannedFolders.filter((f) => f !== folder);
+        await this.plugin.saveSettings();
+        this.display();
+      }));
+    });
   }
   async getCSSFiles() {
     const cssFiles = [];
@@ -384,6 +412,20 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
     console.log("Available CSS files:", uniqueCssFiles);
     return uniqueCssFiles;
   }
+  getFolders() {
+    const folders = [{ path: "", name: "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430" }];
+    const iterateFolder = (folder, path = "") => {
+      folder.children.forEach((child) => {
+        if (child instanceof import_obsidian4.TFolder) {
+          const childPath = path ? `${path}/${child.name}` : child.name;
+          folders.push({ path: childPath, name: childPath });
+          iterateFolder(child, childPath);
+        }
+      });
+    };
+    iterateFolder(this.app.vault.getRoot());
+    return folders;
+  }
 };
 
 // src/FileTablePlugin.ts
@@ -391,7 +433,9 @@ var DEFAULT_SETTINGS = {
   fileExtensions: ["pdf", "cdr", "eps", "png", "jpg", "doc", "docx"],
   groupByFolder: true,
   openLocation: "right",
-  cssFile: "styles.css"
+  cssFile: "styles.css",
+  scannedFolders: [""]
+  // Пустая строка означает корневую папку
 };
 var FileTablePlugin = class extends import_obsidian6.Plugin {
   constructor() {
@@ -452,9 +496,17 @@ var FileTablePlugin = class extends import_obsidian6.Plugin {
   }
   async updateFileTable() {
     if (this.fileTableView) {
-      const files = await this.getFilesInFolder("", this.settings.fileExtensions);
+      const files = await this.getAllFilesInScannedFolders();
       this.fileTableView.updateFileTable(files, this.settings.groupByFolder);
     }
+  }
+  async getAllFilesInScannedFolders() {
+    const allFiles = [];
+    for (const folder of this.settings.scannedFolders) {
+      const files = await this.getFilesInFolder(folder, this.settings.fileExtensions);
+      allFiles.push(...files);
+    }
+    return allFiles;
   }
   async activateView() {
     const { workspace } = this.app;
