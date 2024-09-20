@@ -1,0 +1,13 @@
+{
+  "fileExtensions": [
+    "pdf",
+    "cdr",
+    "eps",
+    "png",
+    "jpg",
+    "doc",
+    "docx"
+  ],
+  "groupByFolder": true,
+  "openLocation": "main"
+}

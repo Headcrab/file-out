@@ -1,0 +1,63 @@
+.file-table-container {
+  padding: 10px;
+}
+
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.file-table th,
+.file-table td {
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.file-table th {
+  position: relative;
+  background-color: var(--background-secondary);
+  font-weight: bold;
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-table th input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 5px;
+}
+
+.file-table th button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.file-table th:hover {
+  background-color: var(--background-secondary-alt);
+}
+
+.file-table tr:nth-child(even) {
+  background-color: var(--background-primary-alt);
+}
+
+.file-table tr:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.folder-header {
+  background-color: var(--background-secondary-alt);
+  font-weight: bold;
+}
+
+.sort-indicator::after {
+  content: ' ▲';
+  font-size: 12px;
+}
+
+.sort-indicator.desc::after {
+  content: ' ▼';
+}

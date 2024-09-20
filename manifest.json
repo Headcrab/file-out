@@ -1,0 +1,26 @@
+{
+  "id": "file-table-plugin",
+  "name": "File Table Plugin",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Плагин для вывода файлов в таблицу в Obsidian",
+  "author": "Ваше имя",
+  "isDesktopOnly": false,
+  "commands": [
+    {
+      "id": "open-file-table",
+      "name": "Открыть таблицу файлов",
+      "hotkeys": []
+    },
+    {
+      "id": "refresh-file-table",
+      "name": "Обновить таблицу файлов",
+      "hotkeys": [
+        {
+          "modifiers": ["Mod"],
+          "key": "r"
+        }
+      ]
+    }
+  ]
+}
