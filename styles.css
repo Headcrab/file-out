@@ -1,5 +1,13 @@
 .file-table-container {
-  padding: 10px;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-table-wrapper {
+  flex-grow: 1;
+  overflow: auto;
 }
 
 .file-table {
@@ -15,8 +23,10 @@
 }
 
 .file-table th {
-  position: relative;
+  position: sticky;
+  top: 0;
   background-color: var(--background-secondary);
+  z-index: 1;
   font-weight: bold;
   text-align: left;
   cursor: pointer;
@@ -60,4 +70,30 @@
 
 .sort-indicator.desc::after {
   content: ' ▼';
+}
+
+.file-name {
+  cursor: pointer;
+  color: var(--text-accent);
+}
+
+.file-name:hover {
+  text-decoration: underline;
+}
+
+.file-icon {
+  margin-right: 5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.file-name {
+  display: flex;
+  align-items: center;
+}
+
+.folder-path {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-left: 5px;
 }

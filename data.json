@@ -6,10 +6,12 @@
     "png",
     "jpg",
     "doc",
-    "docx"
+    "docx",
+    "fb2",
+    "epub"
   ],
   "groupByFolder": true,
   "openLocation": "main",
-  "cssFile": "altstyles.css",
+  "cssFile": "styles.css",
   "cssStyle": "default"
 }

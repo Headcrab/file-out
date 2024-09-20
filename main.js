@@ -51,8 +51,32 @@ var MetadataService = class {
       createdAt: new Date(stat.ctime),
       modifiedAt: new Date(stat.mtime),
       size: stat.size,
-      path: file.path
+      path: file.path,
+      icon: this.getIconForFileType(file.extension)
     };
+  }
+  getIconForFileType(extension) {
+    const iconMap = {
+      pdf: "file-pdf",
+      doc: "file-word",
+      docx: "file-word",
+      xls: "file-excel",
+      xlsx: "file-excel",
+      ppt: "file-powerpoint",
+      pptx: "file-powerpoint",
+      jpg: "file-image",
+      jpeg: "file-image",
+      png: "file-image",
+      gif: "file-image",
+      mp3: "file-audio",
+      wav: "file-audio",
+      mp4: "file-video",
+      avi: "file-video",
+      zip: "file-archive",
+      rar: "file-archive"
+      // Добавьте другие расширения и соответствующие им иконки
+    };
+    return iconMap[extension.toLowerCase()] || "file";
   }
 };
 
@@ -81,8 +105,16 @@ var FileService = class {
   openFile(path) {
     const file = this.vault.getAbstractFileByPath(path);
     if (file instanceof import_obsidian.TFile) {
-      this.app.workspace.getLeaf(false).openFile(file);
+      const leaf = this.getLeaf();
+      leaf.openFile(file, { active: true });
     }
+  }
+  getLeaf() {
+    const leaf = this.app.workspace.getMostRecentLeaf();
+    if (leaf && !leaf.getViewState().pinned) {
+      return leaf;
+    }
+    return this.app.workspace.getLeaf("tab");
   }
 };
 
@@ -126,102 +158,93 @@ var FileTable = class extends import_obsidian3.Component {
     this.onFileOpen = onFileOpen;
     this.files = [];
     this.filteredFiles = [];
-    this.groupByFolder = true;
+    this.groupByFolder = false;
     this.sortColumn = "name";
     this.sortDirection = "asc";
     this.filters = {};
     this.filterInputs = /* @__PURE__ */ new Map();
+    this.render();
   }
   setFiles(files) {
     console.log("Setting files:", files);
     this.files = files;
     this.applyFiltersAndSort();
-    this.render();
+    this.renderBody();
   }
   setGroupByFolder(groupByFolder) {
     this.groupByFolder = groupByFolder;
     this.applyFiltersAndSort();
-    this.render();
+    this.renderBody();
   }
   render() {
-    console.log("Rendering table with files:", this.filteredFiles);
-    const focusedElement = document.activeElement;
-    const focusedColumn = focusedElement == null ? void 0 : focusedElement.getAttribute("data-column");
     this.containerEl.empty();
     this.containerEl.addClass("file-table-container");
-    const table = this.containerEl.createEl("table", { cls: "file-table" });
+    const tableWrapper = this.containerEl.createEl("div", { cls: "file-table-wrapper" });
+    const table = tableWrapper.createEl("table", { cls: "file-table" });
     this.renderHeader(table);
     this.renderBody(table);
-    if (focusedColumn) {
-      const input = this.filterInputs.get(focusedColumn);
-      if (input) {
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      }
-    }
   }
   renderHeader(table) {
-    const header = table.createTHead().insertRow();
-    const columns = ["name", "extension", "createdAt", "modifiedAt", "size", "path"];
+    const thead = table.createTHead();
+    const row = thead.insertRow();
+    const columns = ["name", "extension", "createdAt", "modifiedAt", "size"];
     columns.forEach((column) => {
-      const th = header.createEl("th");
-      const filterInput = th.createEl("input", {
-        type: "text",
-        placeholder: `\u0424\u0438\u043B\u044C\u0442\u0440 ${column}`,
-        value: this.filters[column] || "",
-        attr: { "data-column": column }
-      });
-      this.filterInputs.set(column, filterInput);
-      filterInput.addEventListener("input", (e) => this.setFilter(column, e.target.value));
-      const sortButton = th.createEl("button", { text: column });
-      sortButton.addEventListener("click", () => this.sortBy(column));
-      if (column === this.sortColumn) {
-        sortButton.addClass("sort-indicator");
-        sortButton.addClass(this.sortDirection);
-      }
-    });
-  }
-  setFilter(column, value) {
-    this.filters[column] = value;
-    this.applyFiltersAndSort();
-    this.renderBody(this.containerEl.querySelector("table"));
-  }
-  applyFiltersAndSort() {
-    this.filteredFiles = this.files.filter(
-      (file) => Object.entries(this.filters).every(([column, filterValue]) => {
-        if (!filterValue)
-          return true;
-        const fileValue = file[column];
-        return fileValue.toString().toLowerCase().includes(filterValue.toLowerCase());
-      })
-    );
-    this.filteredFiles.sort((a, b) => {
-      const aValue = a[this.sortColumn];
-      const bValue = b[this.sortColumn];
-      if (aValue < bValue)
-        return this.sortDirection === "asc" ? -1 : 1;
-      if (aValue > bValue)
-        return this.sortDirection === "asc" ? 1 : -1;
-      return 0;
+      const th = row.createEl("th");
+      const button = th.createEl("button");
+      button.textContent = this.capitalizeFirstLetter(column);
+      button.addEventListener("click", () => this.sortBy(column));
+      const input = th.createEl("input", { type: "text" });
+      input.placeholder = `Filter ${column}`;
+      input.addEventListener("input", (event) => this.setFilter(column, event.target.value));
     });
   }
   renderBody(table) {
+    if (!table) {
+      const foundTable = this.containerEl.querySelector("table");
+      if (foundTable instanceof HTMLTableElement) {
+        table = foundTable;
+      } else {
+        console.error("Table element not found");
+        return;
+      }
+    }
     const oldBody = table.tBodies[0];
     const newBody = document.createElement("tbody");
     const groupedFiles = this.groupByFolder ? this.groupFilesByFolder(this.filteredFiles) : { "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B": this.filteredFiles };
-    console.log("Grouped files:", groupedFiles);
     Object.entries(groupedFiles).forEach(([folder, files]) => {
       if (this.groupByFolder || folder === "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B") {
         const folderRow = newBody.insertRow();
-        folderRow.createEl("td", { attr: { colspan: "6" }, text: folder, cls: "folder-header" });
+        const folderCell = folderRow.createEl("td", { attr: { colspan: "5" }, cls: "folder-header" });
+        if (folder === "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430" || folder === "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B") {
+          folderCell.textContent = folder;
+        } else {
+          const folderName = folder.split("/").pop() || folder;
+          folderCell.createSpan({ text: folderName });
+          folderCell.createSpan({ text: ` (${folder})`, cls: "folder-path" });
+        }
       }
       files.forEach((file) => {
         const row = newBody.insertRow();
-        Object.values(file).forEach((value) => {
+        const columns = ["name", "extension", "createdAt", "modifiedAt", "size"];
+        columns.forEach((key) => {
           const cell = row.insertCell();
-          cell.textContent = value instanceof Date ? value.toLocaleString() : value.toString();
+          const value = file[key];
+          if (key === "name") {
+            const iconSpan = cell.createSpan({ cls: "file-icon" });
+            (0, import_obsidian3.setIcon)(iconSpan, file.icon);
+            cell.createSpan({ text: value.toString() });
+            cell.classList.add("file-name");
+            cell.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              this.onFileOpen(file.path);
+            });
+          } else if (key === "size") {
+            cell.textContent = this.formatFileSize(value);
+          } else {
+            cell.textContent = value instanceof Date ? value.toLocaleString() : value.toString();
+          }
         });
-        row.addEventListener("click", () => this.onFileOpen(file.path));
       });
     });
     if (oldBody) {
@@ -229,6 +252,17 @@ var FileTable = class extends import_obsidian3.Component {
     } else {
       table.appendChild(newBody);
     }
+  }
+  capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+  formatFileSize(bytes) {
+    if (bytes === 0)
+      return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   }
   groupFilesByFolder(files) {
     return files.reduce((acc, file) => {
@@ -252,13 +286,41 @@ var FileTable = class extends import_obsidian3.Component {
     if (table) {
       const headers = table.querySelectorAll("th button");
       headers.forEach((button) => {
+        var _a;
         button.classList.remove("sort-indicator", "asc", "desc");
-        if (button.textContent === column) {
+        if (((_a = button.textContent) == null ? void 0 : _a.toLowerCase()) === column) {
           button.classList.add("sort-indicator", this.sortDirection);
         }
       });
     }
-    this.renderBody(this.containerEl.querySelector("table"));
+    this.renderBody();
+  }
+  setFilter(column, value) {
+    this.filters[column] = value;
+    this.applyFiltersAndSort();
+    this.renderBody();
+  }
+  applyFiltersAndSort() {
+    this.filteredFiles = this.files.filter(
+      (file) => Object.entries(this.filters).every(([column, filterValue]) => {
+        if (!filterValue)
+          return true;
+        const fileValue = file[column];
+        if (column === "size") {
+          return this.formatFileSize(fileValue).toLowerCase().includes(filterValue.toLowerCase());
+        }
+        return fileValue.toString().toLowerCase().includes(filterValue.toLowerCase());
+      })
+    );
+    this.filteredFiles.sort((a, b) => {
+      const aValue = a[this.sortColumn];
+      const bValue = b[this.sortColumn];
+      if (aValue < bValue)
+        return this.sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue)
+        return this.sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
   }
 };
 
