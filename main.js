@@ -130,6 +130,7 @@ var FileTable = class extends import_obsidian3.Component {
     this.sortColumn = "name";
     this.sortDirection = "asc";
     this.filters = {};
+    this.filterInputs = /* @__PURE__ */ new Map();
   }
   setFiles(files) {
     console.log("Setting files:", files);
@@ -144,11 +145,20 @@ var FileTable = class extends import_obsidian3.Component {
   }
   render() {
     console.log("Rendering table with files:", this.filteredFiles);
+    const focusedElement = document.activeElement;
+    const focusedColumn = focusedElement == null ? void 0 : focusedElement.getAttribute("data-column");
     this.containerEl.empty();
     this.containerEl.addClass("file-table-container");
     const table = this.containerEl.createEl("table", { cls: "file-table" });
     this.renderHeader(table);
     this.renderBody(table);
+    if (focusedColumn) {
+      const input = this.filterInputs.get(focusedColumn);
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    }
   }
   renderHeader(table) {
     const header = table.createTHead().insertRow();
@@ -158,23 +168,23 @@ var FileTable = class extends import_obsidian3.Component {
       const filterInput = th.createEl("input", {
         type: "text",
         placeholder: `\u0424\u0438\u043B\u044C\u0442\u0440 ${column}`,
-        value: this.filters[column] || ""
+        value: this.filters[column] || "",
+        attr: { "data-column": column }
       });
+      this.filterInputs.set(column, filterInput);
       filterInput.addEventListener("input", (e) => this.setFilter(column, e.target.value));
       const sortButton = th.createEl("button", { text: column });
       sortButton.addEventListener("click", () => this.sortBy(column));
       if (column === this.sortColumn) {
         sortButton.addClass("sort-indicator");
-        if (this.sortDirection === "desc") {
-          sortButton.addClass("desc");
-        }
+        sortButton.addClass(this.sortDirection);
       }
     });
   }
   setFilter(column, value) {
     this.filters[column] = value;
     this.applyFiltersAndSort();
-    this.render();
+    this.renderBody(this.containerEl.querySelector("table"));
   }
   applyFiltersAndSort() {
     this.filteredFiles = this.files.filter(
@@ -196,16 +206,17 @@ var FileTable = class extends import_obsidian3.Component {
     });
   }
   renderBody(table) {
-    const body = table.createTBody();
+    const oldBody = table.tBodies[0];
+    const newBody = document.createElement("tbody");
     const groupedFiles = this.groupByFolder ? this.groupFilesByFolder(this.filteredFiles) : { "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B": this.filteredFiles };
     console.log("Grouped files:", groupedFiles);
     Object.entries(groupedFiles).forEach(([folder, files]) => {
       if (this.groupByFolder || folder === "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B") {
-        const folderRow = body.insertRow();
+        const folderRow = newBody.insertRow();
         folderRow.createEl("td", { attr: { colspan: "6" }, text: folder, cls: "folder-header" });
       }
       files.forEach((file) => {
-        const row = body.insertRow();
+        const row = newBody.insertRow();
         Object.values(file).forEach((value) => {
           const cell = row.insertCell();
           cell.textContent = value instanceof Date ? value.toLocaleString() : value.toString();
@@ -213,17 +224,11 @@ var FileTable = class extends import_obsidian3.Component {
         row.addEventListener("click", () => this.onFileOpen(file.path));
       });
     });
-  }
-  getSortedFiles() {
-    return [...this.files].sort((a, b) => {
-      const aValue = a[this.sortColumn];
-      const bValue = b[this.sortColumn];
-      if (aValue < bValue)
-        return this.sortDirection === "asc" ? -1 : 1;
-      if (aValue > bValue)
-        return this.sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
+    if (oldBody) {
+      table.replaceChild(newBody, oldBody);
+    } else {
+      table.appendChild(newBody);
+    }
   }
   groupFilesByFolder(files) {
     return files.reduce((acc, file) => {
@@ -243,7 +248,17 @@ var FileTable = class extends import_obsidian3.Component {
       this.sortDirection = "asc";
     }
     this.applyFiltersAndSort();
-    this.render();
+    const table = this.containerEl.querySelector("table");
+    if (table) {
+      const headers = table.querySelectorAll("th button");
+      headers.forEach((button) => {
+        button.classList.remove("sort-indicator", "asc", "desc");
+        if (button.textContent === column) {
+          button.classList.add("sort-indicator", this.sortDirection);
+        }
+      });
+    }
+    this.renderBody(this.containerEl.querySelector("table"));
   }
 };
 
