@@ -10,11 +10,12 @@
     "fb2",
     "epub"
   ],
-  "groupByFolder": false,
+  "groupByFolder": true,
   "openLocation": "main",
   "cssFile": "styles.css",
   "scannedFolders": [
-    "Книги/Серия книг Проект Этногенез"
+    ""
   ],
+  "folderFilterHotkey": "ctrl + alt +e",
   "cssStyle": "default"
 }
