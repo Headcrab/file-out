@@ -35,7 +35,7 @@
 .file-table th input {
   width: 100%;
   box-sizing: border-box;
-  margin-bottom: 5px;
+  margin-top: 5px;
 }
 
 .file-table th button {
@@ -44,6 +44,10 @@
   background: none;
   border: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
 }
 
 .file-table th:hover {
@@ -63,13 +67,9 @@
   font-weight: bold;
 }
 
-.sort-indicator::after {
-  content: ' ▲';
+.sort-indicator {
+  margin-left: 5px;
   font-size: 12px;
-}
-
-.sort-indicator.desc::after {
-  content: ' ▼';
 }
 
 .file-name {
@@ -174,4 +174,66 @@
 .file-folder-link:hover {
   color: var(--text-normal);
   text-decoration: underline;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.pagination-controls button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.pagination-controls button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.pagination-controls .page-info {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin: 0 10px; /* Добавлено для отступа между кнопками и информацией о странице */
+}
+
+.compact-folder-settings {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.compact-folder-settings button {
+  background-color: var(--interactive-normal);
+  color: var(--text-normal);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.compact-folder-settings button:hover {
+  background-color: var(--interactive-hover);
+}
+
+.resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background: rgba(0, 0, 0, 0.1);
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+}
+
+.resizer:hover,
+.resizer:active {
+  background: rgba(0, 0, 0, 0.2);
 }

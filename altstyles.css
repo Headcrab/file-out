@@ -2,28 +2,38 @@
   padding: 15px;
   background-color: var(--background-secondary);
   border-radius: 10px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-table-wrapper {
+  flex-grow: 1;
+  overflow: auto;
 }
 
 .file-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 8px;
+  border-collapse: collapse; /* Убираем пробелы между ячейками */
   font-size: 14px;
 }
 
 .file-table th,
 .file-table td {
-  padding: 12px;
-  border: none;
+  padding: 8px; /* Добавлено для улучшения читаемости */
+  border: 1px solid var(--border-color); /* Добавлено для границ ячеек */
 }
 
 .file-table th {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+  position: sticky;
+  top: 0;
+  background-color: var(--header-background); /* Цвет фона заголовков */
+  color: var(--header-text-color); /* Цвет текста заголовков */
   font-weight: bold;
   text-align: left;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  z-index: 1;
 }
 
 .file-table th:hover {
@@ -33,7 +43,7 @@
 .file-table th input {
   width: 100%;
   box-sizing: border-box;
-  margin-bottom: 5px;
+  margin-top: 5px;
   padding: 5px;
   border: none;
   border-radius: 4px;
@@ -48,6 +58,10 @@
   border: none;
   cursor: pointer;
   color: var(--text-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
 }
 
 .file-table tr {
@@ -56,7 +70,11 @@
 }
 
 .file-table tr:hover {
-  background-color: var(--background-primary-alt);
+  background-color: var(--row-hover-background); /* Цвет фона при наведении */
+}
+
+.file-table tr:nth-child(even) {
+  background-color: var(--row-background); /* Цвет фона четных строк */
 }
 
 .folder-header {
@@ -65,11 +83,125 @@
   color: var(--text-accent);
 }
 
-.sort-indicator::after {
-  content: ' ▲';
+.sort-indicator {
+  margin-left: 5px;
   font-size: 12px;
 }
 
-.sort-indicator.desc::after {
-  content: ' ▼';
+.file-name {
+  cursor: pointer;
+  color: var(--text-accent);
+}
+
+.file-name:hover {
+  text-decoration: underline;
+}
+
+.file-icon {
+  margin-right: 5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.folder-path {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-left: 5px;
+}
+
+.file-folder {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.folder-name {
+  cursor: pointer;
+}
+
+.folder-preview-tooltip {
+  position: absolute;
+  z-index: 1000;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 8px;
+  max-width: 300px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.folder-preview-tooltip ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.folder-preview-tooltip li {
+  margin-bottom: 4px;
+}
+
+.file-table-controls {
+  margin-bottom: 10px;
+}
+
+.compact-folder-settings {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.compact-folder-settings button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.compact-folder-settings button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.pagination-controls button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.pagination-controls button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.pagination-controls .page-info {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin: 0 10px; /* Добавлено для отступа между кнопками и информацией о странице */
+}
+
+.resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+}
+
+.resizer:hover,
+.resizer:active {
+  background: rgba(255, 255, 255, 0.2);
 }

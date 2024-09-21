@@ -3,36 +3,24 @@
     "pdf",
     "cdr",
     "eps",
-    "png",
-    "jpg",
-    "doc",
-    "docx",
     "fb2",
     "epub"
   ],
   "groupByFolder": true,
   "openLocation": "main",
   "cssFile": "styles.css",
-  "openFolders": [
-    ""
-  ],
-  "hiddenFolders": [
-    "Книги/Zvezdnyy_labirint/Синякин. Монах на краю земли",
-    "Книги/Zvezdnyy_labirint/Буренин. Бумеранг Гейдриха"
-  ],
-  "pageSize": 50,
-  "columnWidths": {
-    "name": 200,
-    "extension": 100,
-    "folder": 287,
-    "createdAt": 150,
-    "modifiedAt": 150,
-    "size": 100
-  },
   "scannedFolders": [
-    ""
+    "Книги"
   ],
-  "ignoredFolders": [],
-  "folderFilterHotkey": "ctrl + alt +e",
-  "cssStyle": "default"
+  "ignoredFolders": [
+    "Книги/Zvezdnyy_labirint/Дашков. Мечты сбываются",
+    "Книги/Азимов Айзек (.fb2)"
+  ],
+  "fileTableSession": {
+    "selectedFolders": [],
+    "currentFolder": "",
+    "pageSize": 10,
+    "currentPage": 1,
+    "groupByFolder": true
+  }
 }
