@@ -27,10 +27,10 @@ __export(main_exports, {
   default: () => MainPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // src/FileTablePlugin.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/services/FileService.ts
 var import_obsidian = require("obsidian");
@@ -155,7 +155,7 @@ var FolderService = class {
 };
 
 // src/ui/FileTable.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/ui/FileTableUtils.ts
 function formatFileSize(bytes) {
@@ -305,6 +305,7 @@ var FileTableRenderer = class {
     const controlsEl = containerEl.createDiv({ cls: "file-table-controls" });
     this.renderCompactFolderSettings(controlsEl);
     this.renderPaginationControls(controlsEl);
+    this.renderBookmarkControls(containerEl);
   }
   render(containerEl, files, groupByFolder) {
     console.log("Rendering table");
@@ -377,6 +378,29 @@ var FileTableRenderer = class {
       this.fileTable.getPaginationManager().nextPage();
       this.update();
     });
+  }
+  renderBookmarkControls(containerEl) {
+    const bookmarkControlsEl = containerEl.createDiv({ cls: "bookmark-controls" });
+    const inputEl = new import_obsidian3.TextComponent(bookmarkControlsEl).setPlaceholder("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0442\u0435\u0433 \u0434\u043B\u044F \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0438").inputEl;
+    new import_obsidian3.ButtonComponent(bookmarkControlsEl).setButtonText("\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0443").onClick(() => {
+      const tag = inputEl.value.trim();
+      if (tag) {
+        this.fileTable.getBookmarks().addBookmark(tag);
+        inputEl.value = "";
+        this.update();
+      }
+    });
+    new import_obsidian3.ButtonComponent(bookmarkControlsEl).setButtonText("\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440").setTooltip("\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0430\u043C").onClick(() => {
+      this.fileTable.getBookmarks().clearFilter();
+      this.update();
+    });
+    const bookmarksEl = containerEl.createDiv({ cls: "file-table-bookmarks" });
+    this.fileTable.getBookmarks().renderBookmarks(bookmarksEl);
+    const activeBookmarkEl = containerEl.createDiv({ cls: "active-bookmark" });
+    const activeBookmark = this.fileTable.getBookmarks().getActiveBookmark();
+    if (activeBookmark) {
+      activeBookmarkEl.textContent = `\u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0439 \u0444\u0438\u043B\u044C\u0442\u0440: ${activeBookmark}`;
+    }
   }
 };
 
@@ -534,7 +558,7 @@ var FolderManager = class {
     await this.plugin.updateFileTable();
   }
   getSelectedFolders() {
-    return this.selectedFolders;
+    return new Set(this.selectedFolders);
   }
   setSelectedFolders(folders) {
     this.selectedFolders = new Set(folders);
@@ -697,8 +721,67 @@ var ColumnResizer = class {
   }
 };
 
+// src/ui/Bookmarks.ts
+var import_obsidian6 = require("obsidian");
+var Bookmarks = class {
+  constructor(fileTable) {
+    this.fileTable = fileTable;
+    this.bookmarks = [];
+    this.activeBookmark = null;
+  }
+  addBookmark(tag) {
+    if (!this.bookmarks.includes(tag)) {
+      this.bookmarks.push(tag);
+      this.fileTable.saveTableState();
+      this.filterByTag(tag);
+    }
+  }
+  removeBookmark(tag) {
+    this.bookmarks = this.bookmarks.filter((b) => b !== tag);
+    this.fileTable.saveTableState();
+    if (this.activeBookmark === tag) {
+      this.clearFilter();
+    } else {
+      this.fileTable.updateTableContent();
+    }
+  }
+  renderBookmarks(containerEl) {
+    containerEl.empty();
+    this.bookmarks.forEach((tag) => {
+      const bookmarkEl = containerEl.createDiv({ cls: "bookmark-tag" });
+      new import_obsidian6.ButtonComponent(bookmarkEl).setButtonText(tag).onClick(() => this.filterByTag(tag));
+      new import_obsidian6.ButtonComponent(bookmarkEl).setIcon("x").setTooltip("\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0443").onClick(() => this.removeBookmark(tag));
+    });
+  }
+  filterByTag(tag) {
+    this.activeBookmark = tag;
+    const filteredFolders = this.fileTable.getAllFolders().filter(
+      (folder) => folder.toLowerCase().includes(tag.toLowerCase())
+    );
+    this.fileTable.setFilteredFolders(filteredFolders);
+    this.fileTable.applyFiltersAndSort();
+    this.fileTable.render();
+  }
+  getBookmarks() {
+    return this.bookmarks;
+  }
+  setBookmarks(bookmarks) {
+    this.bookmarks = bookmarks;
+    this.activeBookmark = null;
+    this.fileTable.updateTableContent();
+  }
+  clearFilter() {
+    this.activeBookmark = null;
+    this.fileTable.setFilteredFolders(this.fileTable.getAllFolders());
+    this.fileTable.updateTableContent();
+  }
+  getActiveBookmark() {
+    return this.activeBookmark;
+  }
+};
+
 // src/ui/FileTable.ts
-var FileTable = class extends import_obsidian6.Component {
+var FileTable = class extends import_obsidian7.Component {
   constructor(containerEl, onFileOpen, plugin) {
     super();
     this.containerEl = containerEl;
@@ -720,6 +803,7 @@ var FileTable = class extends import_obsidian6.Component {
     this.paginationManager = new PaginationManager(this);
     this.sessionManager = new SessionManager(this, plugin);
     this.columnResizer = new ColumnResizer(this, plugin);
+    this.bookmarks = new Bookmarks(this);
     if (this.plugin.settings.saveFoldersBetweenSessions) {
       this.sessionManager.loadSession();
     } else {
@@ -727,14 +811,9 @@ var FileTable = class extends import_obsidian6.Component {
     }
   }
   render() {
-    console.log("Rendering FileTable");
-    this.containerEl.empty();
-    this.containerEl.addClass("file-table-container");
-    const controlsEl = this.containerEl.createDiv({ cls: "file-table-controls compact" });
-    this.renderer.renderControls(controlsEl);
-    const tableWrapper = this.containerEl.createDiv({ cls: "file-table-wrapper" });
-    this.renderer.render(tableWrapper, this.files, this.groupByFolder);
-    console.log("FileTable rendered");
+    console.log("Rendering table");
+    this.renderer.update();
+    console.log("Table rendered");
   }
   renderTable() {
     const tableEl = this.containerEl.querySelector(".file-table");
@@ -747,14 +826,24 @@ var FileTable = class extends import_obsidian6.Component {
     }
   }
   applyFiltersAndSort() {
-    this.filteredFiles = this.filter.applyFilters(this.files, this.currentFolder, Array.from(this.folderManager.getSelectedFolders()));
+    this.filteredFiles = this.filter.applyFilters(
+      this.files,
+      this.currentFolder,
+      Array.from(this.folderManager.getSelectedFolders())
+      // Преобразуем Set в массив
+    );
+    const activeBookmark = this.bookmarks.getActiveBookmark();
+    if (activeBookmark) {
+      this.filteredFiles = this.filteredFiles.filter(
+        (file) => file.folder.toLowerCase().includes(activeBookmark.toLowerCase())
+      );
+    }
     this.filteredFiles = this.sorter.sortFiles(this.filteredFiles);
-    this.paginationManager.resetCurrentPage();
     this.paginationManager.updateTotalPages(this.filteredFiles.length);
-    this.updateTableContent();
   }
   updateTableContent() {
-    this.renderer.update();
+    this.applyFiltersAndSort();
+    this.render();
   }
   updateFileTable(files, groupByFolder) {
     console.log(`Updating file table: ${files.length} files, groupByFolder: ${groupByFolder}`);
@@ -806,6 +895,8 @@ var FileTable = class extends import_obsidian6.Component {
   }
   saveTableState() {
     this.sessionManager.saveSession();
+    this.plugin.settings.bookmarks = this.bookmarks.getBookmarks();
+    this.plugin.saveSettings();
   }
   updatePagination() {
     const paginationEl = this.containerEl.querySelector(".pagination");
@@ -835,11 +926,26 @@ var FileTable = class extends import_obsidian6.Component {
       this.updatePagination();
     }
   }
+  getAllFolders() {
+    return Array.from(new Set(this.files.map((file) => file.folder)));
+  }
+  setFilteredFolders(folders) {
+    this.filteredFiles = this.files.filter((file) => folders.includes(file.folder));
+    this.applyFiltersAndSort();
+    this.paginationManager.resetCurrentPage();
+    this.render();
+  }
+  getBookmarks() {
+    return this.bookmarks;
+  }
+  getContainerEl() {
+    return this.containerEl;
+  }
 };
 
 // src/ui/SettingsTab.ts
-var import_obsidian7 = require("obsidian");
-var SettingsTab = class extends import_obsidian7.PluginSettingTab {
+var import_obsidian8 = require("obsidian");
+var SettingsTab = class extends import_obsidian8.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -849,21 +955,21 @@ var SettingsTab = class extends import_obsidian7.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 File Table Plugin" });
     containerEl.createEl("h3", { text: "\u041E\u0441\u043D\u043E\u0432\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438" });
-    new import_obsidian7.Setting(containerEl).setName("\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432").setDesc("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432 \u0447\u0435\u0440\u0435\u0437 \u0437\u0430\u043F\u044F\u0442\u0443\u044E (\u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: pdf,cdr,eps)").addText((text) => text.setPlaceholder("pdf,cdr,eps").setValue(this.plugin.settings.fileExtensions.join(",")).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432").setDesc("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432 \u0447\u0435\u0440\u0435\u0437 \u0437\u0430\u043F\u044F\u0442\u0443\u044E (\u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: pdf,cdr,eps)").addText((text) => text.setPlaceholder("pdf,cdr,eps").setValue(this.plugin.settings.fileExtensions.join(",")).onChange(async (value) => {
       this.plugin.settings.fileExtensions = value.split(",").map((ext) => ext.trim());
       await this.plugin.saveSettings();
     }));
-    new import_obsidian7.Setting(containerEl).setName("\u0413\u0440\u0443\u043F\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u043F\u0430\u043F\u043A\u0430\u043C").setDesc("\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u0438\u0440\u043E\u0432\u043A\u0443 \u0444\u0430\u0439\u043B\u043E\u0432 \u043F\u043E \u043F\u0430\u043F\u043A\u0430\u043C").addToggle((toggle) => toggle.setValue(this.plugin.settings.groupByFolder).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("\u0413\u0440\u0443\u043F\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u043F\u0430\u043F\u043A\u0430\u043C").setDesc("\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u0438\u0440\u043E\u0432\u043A\u0443 \u0444\u0430\u0439\u043B\u043E\u0432 \u043F\u043E \u043F\u0430\u043F\u043A\u0430\u043C").addToggle((toggle) => toggle.setValue(this.plugin.settings.groupByFolder).onChange(async (value) => {
       this.plugin.settings.groupByFolder = value;
       await this.plugin.saveSettings();
       await this.plugin.updateFileTable();
     }));
     containerEl.createEl("h3", { text: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435" });
-    new import_obsidian7.Setting(containerEl).setName("\u041C\u0435\u0441\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u044F").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0433\u0434\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C \u0442\u0430\u0431\u043B\u0438\u0446\u0443 \u0444\u0430\u0439\u043B\u043E\u0432").addDropdown((dropdown) => dropdown.addOption("left", "\u0421\u043B\u0435\u0432\u0430").addOption("right", "\u0421\u043F\u0440\u0430\u0432\u0430").addOption("main", "\u0412 \u0433\u043B\u0430\u0432\u043D\u043E\u043C \u043E\u043A\u043D\u0435").setValue(this.plugin.settings.openLocation).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("\u041C\u0435\u0441\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u044F").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0433\u0434\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C \u0442\u0430\u0431\u043B\u0438\u0446\u0443 \u0444\u0430\u0439\u043B\u043E\u0432").addDropdown((dropdown) => dropdown.addOption("left", "\u0421\u043B\u0435\u0432\u0430").addOption("right", "\u0421\u043F\u0440\u0430\u0432\u0430").addOption("main", "\u0412 \u0433\u043B\u0430\u0432\u043D\u043E\u043C \u043E\u043A\u043D\u0435").setValue(this.plugin.settings.openLocation).onChange(async (value) => {
       this.plugin.settings.openLocation = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian7.Setting(containerEl).setName("CSS \u0444\u0430\u0439\u043B").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 CSS \u0444\u0430\u0439\u043B \u0434\u043B\u044F \u0441\u0442\u0438\u043B\u0438\u0437\u0430\u0446\u0438\u0438 \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u0444\u0430\u0439\u043B\u043E\u0432").addDropdown(async (dropdown) => {
+    new import_obsidian8.Setting(containerEl).setName("CSS \u0444\u0430\u0439\u043B").setDesc("\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 CSS \u0444\u0430\u0439\u043B \u0434\u043B\u044F \u0441\u0442\u0438\u043B\u0438\u0437\u0430\u0446\u0438\u0438 \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u0444\u0430\u0439\u043B\u043E\u0432").addDropdown(async (dropdown) => {
       const cssFiles = await this.getCSSFiles();
       cssFiles.forEach((file) => {
         dropdown.addOption(file, file);
@@ -887,7 +993,7 @@ var SettingsTab = class extends import_obsidian7.PluginSettingTab {
       (folder) => this.plugin.addIgnoredFolder(folder),
       (folder) => this.plugin.removeIgnoredFolder(folder)
     );
-    new import_obsidian7.Setting(containerEl).setName("\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C \u043F\u0430\u043F\u043A\u0438 \u043C\u0435\u0436\u0434\u0443 \u0441\u0435\u0441\u0441\u0438\u044F\u043C\u0438").setDesc("\u0415\u0441\u043B\u0438 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u043E, \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435 \u043F\u0430\u043F\u043A\u0438 \u0431\u0443\u0434\u0443\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C\u0441\u044F \u043C\u0435\u0436\u0434\u0443 \u0441\u0435\u0441\u0441\u0438\u044F\u043C\u0438").addToggle((toggle) => toggle.setValue(this.plugin.settings.saveFoldersBetweenSessions).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C \u043F\u0430\u043F\u043A\u0438 \u043C\u0435\u0436\u0434\u0443 \u0441\u0435\u0441\u0441\u0438\u044F\u043C\u0438").setDesc("\u0415\u0441\u043B\u0438 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u043E, \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435 \u043F\u0430\u043F\u043A\u0438 \u0431\u0443\u0434\u0443\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C\u0441\u044F \u043C\u0435\u0436\u0434\u0443 \u0441\u0435\u0441\u0441\u0438\u044F\u043C\u0438").addToggle((toggle) => toggle.setValue(this.plugin.settings.saveFoldersBetweenSessions).onChange(async (value) => {
       this.plugin.settings.saveFoldersBetweenSessions = value;
       await this.plugin.saveSettings();
       this.display();
@@ -895,7 +1001,7 @@ var SettingsTab = class extends import_obsidian7.PluginSettingTab {
   }
   renderFolderSection(title, folders, addCallback, removeCallback) {
     const sectionEl = this.containerEl.createEl("div", { cls: "folder-section" });
-    new import_obsidian7.Setting(sectionEl).setName(title).setDesc(`\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0438 \u0434\u043B\u044F ${title.toLowerCase()}`).addButton((button) => button.setButtonText("\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443").onClick(async () => {
+    new import_obsidian8.Setting(sectionEl).setName(title).setDesc(`\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0438 \u0434\u043B\u044F ${title.toLowerCase()}`).addButton((button) => button.setButtonText("\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443").onClick(async () => {
       new FolderSuggestModal2(this.app, async (folder) => {
         await addCallback(folder);
         await this.plugin.saveSettings();
@@ -904,7 +1010,7 @@ var SettingsTab = class extends import_obsidian7.PluginSettingTab {
       }).open();
     }));
     folders.forEach((folder) => {
-      new import_obsidian7.Setting(sectionEl).setName(folder || "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430").addButton((button) => button.setIcon("trash").setTooltip(`\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0438\u0437 ${title.toLowerCase()}`).onClick(async () => {
+      new import_obsidian8.Setting(sectionEl).setName(folder || "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430").addButton((button) => button.setIcon("trash").setTooltip(`\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0438\u0437 ${title.toLowerCase()}`).onClick(async () => {
         await removeCallback(folder);
         await this.plugin.saveSettings();
         await this.plugin.updateFileTable();
@@ -914,10 +1020,10 @@ var SettingsTab = class extends import_obsidian7.PluginSettingTab {
   }
   async getCSSFiles() {
     const cssFiles = [];
-    const pluginDir = (0, import_obsidian7.normalizePath)(this.app.vault.configDir + "/plugins/file-table-plugin");
+    const pluginDir = (0, import_obsidian8.normalizePath)(this.app.vault.configDir + "/plugins/file-table-plugin");
     try {
       const pluginFiles = await this.app.vault.adapter.list(pluginDir);
-      pluginFiles.files.filter((file) => file.endsWith(".css")).forEach((file) => cssFiles.push((0, import_obsidian7.normalizePath)(file)));
+      pluginFiles.files.filter((file) => file.endsWith(".css")).forEach((file) => cssFiles.push((0, import_obsidian8.normalizePath)(file)));
     } catch (error) {
       console.error("Failed to read plugin directory:", error);
     }
@@ -928,7 +1034,7 @@ var SettingsTab = class extends import_obsidian7.PluginSettingTab {
     return uniqueCssFiles;
   }
 };
-var FolderSuggestModal2 = class extends import_obsidian7.FuzzySuggestModal {
+var FolderSuggestModal2 = class extends import_obsidian8.FuzzySuggestModal {
   constructor(app, selectFolder) {
     super(app);
     this.selectFolder = selectFolder;
@@ -951,7 +1057,7 @@ var FolderSuggestModal2 = class extends import_obsidian7.FuzzySuggestModal {
     while (stack.length > 0) {
       const currentFolder = stack.pop();
       folders.push(currentFolder.path);
-      currentFolder.children.filter((child) => child instanceof import_obsidian7.TFolder).forEach((childFolder) => stack.push(childFolder));
+      currentFolder.children.filter((child) => child instanceof import_obsidian8.TFolder).forEach((childFolder) => stack.push(childFolder));
     }
     return folders;
   }
@@ -965,10 +1071,11 @@ var DEFAULT_SETTINGS = {
   cssFile: "styles.css",
   scannedFolders: [],
   ignoredFolders: [],
-  saveFoldersBetweenSessions: true
+  saveFoldersBetweenSessions: true,
+  bookmarks: []
 };
 var FILE_TABLE_VIEW_TYPE = "file-table-view";
-var FileTablePlugin = class extends import_obsidian8.Plugin {
+var FileTablePlugin = class extends import_obsidian9.Plugin {
   constructor() {
     super(...arguments);
     this.currentStyleElement = null;
@@ -1035,7 +1142,18 @@ var FileTablePlugin = class extends import_obsidian8.Plugin {
         }
       }
     });
-    this.registerEvent(this.app.workspace.on("quit", this.saveSettings.bind(this)));
+    this.addCommand({
+      id: "clear-bookmarks",
+      name: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u0432\u0441\u0435 \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0438",
+      callback: () => {
+        this.settings.bookmarks = [];
+        this.saveSettings();
+        if (this.fileTableView) {
+          this.fileTableView.getFileTable().getBookmarks().setBookmarks([]);
+          this.fileTableView.updateFileTable();
+        }
+      }
+    });
   }
   async updateFileTable() {
     console.log("Updating file table");
@@ -1058,7 +1176,7 @@ var FileTablePlugin = class extends import_obsidian8.Plugin {
     }
     let cssContent;
     try {
-      const cssPath = (0, import_obsidian8.normalizePath)(this.manifest.dir + "/" + this.settings.cssFile);
+      const cssPath = (0, import_obsidian9.normalizePath)(this.manifest.dir + "/" + this.settings.cssFile);
       cssContent = await this.app.vault.adapter.read(cssPath);
     } catch (error) {
       console.error(`Failed to load CSS file: ${this.settings.cssFile}`, error);
@@ -1076,8 +1194,7 @@ var FileTablePlugin = class extends import_obsidian8.Plugin {
     `;
   }
   async loadSettings() {
-    const loadedData = await this.loadData();
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
   async saveSettings() {
     await this.saveData(this.settings);
@@ -1134,7 +1251,7 @@ var FileTablePlugin = class extends import_obsidian8.Plugin {
       this.app.workspace.revealLeaf(
         this.app.workspace.getLeavesOfType("empty")[0]
       );
-      (_a = this.app.workspace.getActiveViewOfType(import_obsidian8.ItemView)) == null ? void 0 : _a.leaf.setViewState({
+      (_a = this.app.workspace.getActiveViewOfType(import_obsidian9.ItemView)) == null ? void 0 : _a.leaf.setViewState({
         type: "empty",
         state: { settingTab }
       });
@@ -1198,7 +1315,7 @@ var FileTablePlugin = class extends import_obsidian8.Plugin {
     await this.updateFileTable();
   }
 };
-var FileTableView = class extends import_obsidian8.ItemView {
+var FileTableView = class extends import_obsidian9.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -1211,6 +1328,7 @@ var FileTableView = class extends import_obsidian8.ItemView {
   }
   async onOpen() {
     this.fileTable = new FileTable(this.containerEl, (path) => this.plugin.openFile(path), this.plugin);
+    this.fileTable.getBookmarks().setBookmarks(this.plugin.settings.bookmarks);
     await this.updateFileTable();
     console.log("FileTable initialized:", this.fileTable);
   }
@@ -1235,6 +1353,9 @@ var FileTableView = class extends import_obsidian8.ItemView {
     this.fileTable.getFolderManager().setSelectedFolders([]);
     this.fileTable.setCurrentFolder("");
   }
+  getFileTable() {
+    return this.fileTable;
+  }
 };
 function debounce(func, wait, immediate) {
   let timeout;
@@ -1254,7 +1375,7 @@ function debounce(func, wait, immediate) {
 }
 
 // src/main.ts
-var MainPlugin = class extends import_obsidian9.Plugin {
+var MainPlugin = class extends import_obsidian10.Plugin {
   async onload() {
     this.fileTablePlugin = new FileTablePlugin(this.app, this.manifest);
     await this.fileTablePlugin.onload();

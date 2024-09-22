@@ -8,12 +8,19 @@
   ],
   "groupByFolder": false,
   "openLocation": "right",
-  "cssFile": "styles.css",
+  "cssFile": "altstyles.css",
   "scannedFolders": [
     "Книги"
   ],
   "ignoredFolders": [],
   "saveFoldersBetweenSessions": true,
+  "bookmarks": [
+    "Азимов",
+    "Этногенез",
+    "Эрт",
+    "fb2",
+    "Мечты"
+  ],
   "fileTableSession": {
     "selectedFolders": [],
     "currentFolder": "",

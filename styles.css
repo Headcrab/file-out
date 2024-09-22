@@ -267,3 +267,63 @@
 .ignore-folder-button:hover {
   opacity: 1;
 }
+
+.file-table-bookmarks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.bookmark-tag {
+    display: flex;
+    align-items: center;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-radius: 3px;
+    padding: 2px 5px;
+}
+
+.bookmark-tag button {
+    background: none;
+    border: none;
+    color: var(--text-on-accent);
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.bookmark-tag button:hover {
+    opacity: 0.8;
+}
+
+.bookmark-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.bookmark-controls input {
+    flex-grow: 1;
+}
+
+.bookmark-controls button {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.bookmark-controls button:hover {
+    background-color: var(--interactive-accent-hover);
+}
+
+.bookmark-controls button:last-child {
+    background-color: var(--text-muted);
+}
+
+.bookmark-controls button:last-child:hover {
+    background-color: var(--text-normal);
+}
