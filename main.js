@@ -175,11 +175,12 @@ var FileTableRenderer = class {
     this.containerEl = containerEl;
     this.onFileOpen = onFileOpen;
     this.plugin = plugin;
+    this.filterInputs = {};
   }
   renderHeader(table) {
     const thead = table.createTHead();
     const row = thead.insertRow();
-    const columns = ["name", "extension", "folder", "createdAt", "modifiedAt", "size"];
+    const columns = ["name", "extension", "createdAt", "modifiedAt", "size", "folder"];
     columns.forEach((column) => {
       const th = row.createEl("th");
       th.dataset.column = column;
@@ -195,8 +196,11 @@ var FileTableRenderer = class {
       });
       const input = th.createEl("input", { type: "text" });
       input.placeholder = `\u0424\u0438\u043B\u044C\u0442\u0440 ${column}`;
+      this.filterInputs[column] = input;
+      input.value = this.fileTable.getFilter().getFilters()[column] || "";
       input.addEventListener("input", (event) => {
-        this.fileTable.getFilter().setFilter(column, event.target.value);
+        const filterValue = event.target.value;
+        this.fileTable.getFilter().setFilter(column, filterValue);
         this.fileTable.applyFiltersAndSort();
         this.fileTable.updateTableContent();
         this.fileTable.saveTableState();
@@ -219,24 +223,28 @@ var FileTableRenderer = class {
     });
   }
   getColumnIndex(column) {
-    const columns = ["name", "extension", "folder", "createdAt", "modifiedAt", "size"];
+    const columns = ["name", "extension", "createdAt", "modifiedAt", "size", "folder"];
     return columns.indexOf(column);
   }
   renderBody(table, files, groupByFolder) {
     const tbody = table.createTBody();
-    const groupedFiles = groupByFolder ? this.groupFilesByFolder(files) : { "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B": files };
-    Object.entries(groupedFiles).forEach(([folder, filesInFolder]) => {
-      if (this.fileTable.getCurrentFolder() === "" || folder === this.fileTable.getCurrentFolder()) {
-        if (groupByFolder || folder === "\u0412\u0441\u0435 \u0444\u0430\u0439\u043B\u044B") {
-          this.renderFolderRow(tbody, folder);
-        }
-        filesInFolder.forEach((file) => {
-          this.renderFileRow(tbody, file);
-        });
+    const groupedFiles = groupByFolder ? this.groupFilesByFolder(files) : { "": files };
+    for (const [folder, folderFiles] of Object.entries(groupedFiles)) {
+      if (groupByFolder && folder !== "") {
+        this.renderFolderHeader(tbody, folder);
       }
-    });
+      folderFiles.forEach((file) => {
+        const row = tbody.insertRow();
+        this.renderCell(row, "name", this.renderFileName(file));
+        this.renderCell(row, "extension", file.extension);
+        this.renderCell(row, "createdAt", file.createdAt.toLocaleString());
+        this.renderCell(row, "modifiedAt", file.modifiedAt.toLocaleString());
+        this.renderCell(row, "size", formatFileSize(file.size));
+        this.renderCell(row, "folder", file.folder);
+      });
+    }
   }
-  renderFolderRow(tbody, folder) {
+  renderFolderHeader(tbody, folder) {
     const row = tbody.insertRow();
     row.classList.add("folder-header");
     const cell = row.insertCell();
@@ -256,23 +264,21 @@ var FileTableRenderer = class {
       this.fileTable.getFolderManager().addIgnoredFolder(folder);
     });
   }
-  renderFileRow(tbody, file) {
-    const row = tbody.insertRow();
-    const nameCell = row.insertCell();
-    const nameLink = nameCell.createEl("a", { cls: "file-name-link", text: file.name });
+  renderFileName(file) {
+    const nameLink = createEl("a", { cls: "file-name-link", text: file.name });
     nameLink.addEventListener("click", (e) => {
       e.preventDefault();
       this.onFileOpen(file.path);
     });
-    this.createCell(row, file.extension);
-    this.createCell(row, file.folder);
-    this.createCell(row, file.createdAt.toLocaleString());
-    this.createCell(row, file.modifiedAt.toLocaleString());
-    this.createCell(row, formatFileSize(file.size));
+    return nameLink;
   }
-  createCell(row, content) {
+  renderCell(row, column, content) {
     const cell = row.insertCell();
-    cell.textContent = content;
+    if (typeof content === "string") {
+      cell.textContent = content;
+    } else {
+      cell.appendChild(content);
+    }
   }
   capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
@@ -301,11 +307,20 @@ var FileTableRenderer = class {
     console.log("Table rendered");
   }
   update() {
+    const activeElement = document.activeElement;
+    const focusedColumn = activeElement instanceof HTMLInputElement ? Object.keys(this.filterInputs).find((key) => this.filterInputs[key] === activeElement) : null;
     this.containerEl.empty();
     this.renderControls(this.containerEl);
     const tableWrapper = this.containerEl.createDiv({ cls: "file-table-wrapper" });
     const filesToRender = this.fileTable.getPaginationManager().getCurrentPageFiles();
     this.render(tableWrapper, filesToRender, this.fileTable.getGroupByFolder());
+    if (focusedColumn) {
+      const newInput = this.filterInputs[focusedColumn];
+      if (newInput) {
+        newInput.focus();
+        newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+      }
+    }
   }
   renderCompactFolderSettings(containerEl) {
     const settingsEl = containerEl.createDiv({ cls: "compact-folder-settings" });

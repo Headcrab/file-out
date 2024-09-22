@@ -6,12 +6,14 @@
     "fb2",
     "epub"
   ],
-  "groupByFolder": true,
+  "groupByFolder": false,
   "openLocation": "right",
   "cssFile": "styles.css",
-  "scannedFolders": [],
+  "scannedFolders": [
+    "Книги"
+  ],
   "ignoredFolders": [],
-  "saveFoldersBetweenSessions": false,
+  "saveFoldersBetweenSessions": true,
   "fileTableSession": {
     "selectedFolders": [],
     "currentFolder": "",
