@@ -176,14 +176,6 @@ var FileTableRenderer = class {
     this.onFileOpen = onFileOpen;
     this.plugin = plugin;
     this.filterInputs = {};
-    this.columnNames = {
-      name: "\u0418\u043C\u044F",
-      extension: "\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435",
-      createdAt: "\u0421\u043E\u0437\u0434\u0430\u043D",
-      modifiedAt: "\u0418\u0437\u043C\u0435\u043D\u0435\u043D",
-      size: "\u0420\u0430\u0437\u043C\u0435\u0440",
-      folder: "\u041F\u0430\u043F\u043A\u0430"
-    };
   }
   renderHeader(table) {
     const thead = table.createTHead();
@@ -193,7 +185,7 @@ var FileTableRenderer = class {
       const th = row.createEl("th");
       th.dataset.column = column;
       const button = th.createEl("button");
-      button.textContent = this.columnNames[column];
+      button.textContent = this.capitalizeFirstLetter(column);
       const sortIndicator = button.createSpan({ cls: "sort-indicator" });
       button.addEventListener("click", () => {
         this.fileTable.getSorter().sortBy(column);
@@ -203,7 +195,7 @@ var FileTableRenderer = class {
         this.fileTable.saveTableState();
       });
       const input = th.createEl("input", { type: "text" });
-      input.placeholder = `\u0424\u0438\u043B\u044C\u0442\u0440 ${this.columnNames[column].toLowerCase()}`;
+      input.placeholder = `\u0424\u0438\u043B\u044C\u0442\u0440 ${column}`;
       this.filterInputs[column] = input;
       input.value = this.fileTable.getFilter().getFilters()[column] || "";
       input.addEventListener("input", (event) => {
@@ -389,10 +381,6 @@ var FileTableRenderer = class {
         inputEl.value = "";
         this.update();
       }
-    });
-    new import_obsidian3.ButtonComponent(bookmarkControlsEl).setButtonText("\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440").setTooltip("\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0430\u043C").onClick(() => {
-      this.fileTable.getBookmarks().clearFilter();
-      this.update();
     });
     const bookmarksEl = containerEl.createDiv({ cls: "file-table-bookmarks" });
     this.fileTable.getBookmarks().renderBookmarks(bookmarksEl);
@@ -724,8 +712,9 @@ var ColumnResizer = class {
 // src/ui/Bookmarks.ts
 var import_obsidian6 = require("obsidian");
 var Bookmarks = class {
-  constructor(fileTable) {
+  constructor(fileTable, plugin) {
     this.fileTable = fileTable;
+    this.plugin = plugin;
     this.bookmarks = [];
     this.activeBookmark = null;
   }
@@ -752,15 +741,78 @@ var Bookmarks = class {
       new import_obsidian6.ButtonComponent(bookmarkEl).setButtonText(tag).onClick(() => this.filterByTag(tag));
       new import_obsidian6.ButtonComponent(bookmarkEl).setIcon("x").setTooltip("\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0443").onClick(() => this.removeBookmark(tag));
     });
+    if (this.activeBookmark) {
+      new import_obsidian6.ButtonComponent(containerEl).setButtonText("\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440").setTooltip("\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0437\u0430\u043A\u043B\u0430\u0434\u043A\u0430\u043C").onClick(() => this.clearFilter());
+    }
   }
-  filterByTag(tag) {
+  async filterByTag(tag) {
     this.activeBookmark = tag;
-    const filteredFolders = this.fileTable.getAllFolders().filter(
-      (folder) => folder.toLowerCase().includes(tag.toLowerCase())
+    const allFiles = await this.getAllFilesInVault();
+    const filteredFiles = allFiles.filter(
+      (file) => file.folder.toLowerCase().includes(tag.toLowerCase())
     );
-    this.fileTable.setFilteredFolders(filteredFolders);
-    this.fileTable.applyFiltersAndSort();
+    this.fileTable.updateFileTable(filteredFiles, this.plugin.settings.groupByFolder);
     this.fileTable.render();
+  }
+  async clearFilter() {
+    this.activeBookmark = null;
+    const files = await this.getFilesInScannedFolders();
+    this.fileTable.updateFileTable(files, this.plugin.settings.groupByFolder);
+    this.fileTable.render();
+  }
+  // Обновленный метод для получения файлов из сканируемых папок
+  async getFilesInScannedFolders() {
+    const allFiles = await this.getAllFilesInVault();
+    const scannedFolders = this.plugin.settings.scannedFolders;
+    const ignoredFolders = this.plugin.settings.ignoredFolders;
+    if (scannedFolders.length === 0) {
+      return [];
+    }
+    return allFiles.filter(
+      (file) => this.isInScannedFolder(file.path, scannedFolders) && !this.isInIgnoredFolder(file.path, ignoredFolders)
+    );
+  }
+  isInScannedFolder(filePath, scannedFolders) {
+    return scannedFolders.some(
+      (folder) => filePath === folder || filePath.startsWith(folder + "/")
+    );
+  }
+  isInIgnoredFolder(filePath, ignoredFolders) {
+    return ignoredFolders.some(
+      (folder) => filePath === folder || filePath.startsWith(folder + "/")
+    );
+  }
+  // Обновленный метод для получения всех файлов в хранилище
+  async getAllFilesInVault() {
+    const allFiles = [];
+    const vault = this.plugin.app.vault;
+    for (const file of vault.getFiles()) {
+      if (this.plugin.settings.fileExtensions.includes(file.extension)) {
+        const fileInfo = {
+          name: file.name,
+          path: file.path,
+          extension: file.extension,
+          size: file.stat.size,
+          createdAt: new Date(file.stat.ctime),
+          modifiedAt: new Date(file.stat.mtime),
+          folder: file.parent ? file.parent.path : "",
+          icon: this.getFileIcon(file.extension)
+        };
+        allFiles.push(fileInfo);
+      }
+    }
+    return allFiles;
+  }
+  getFileIcon(extension) {
+    switch (extension.toLowerCase()) {
+      case "pdf":
+        return "pdf";
+      case "cdr":
+      case "eps":
+        return "image-file";
+      default:
+        return "document";
+    }
   }
   getBookmarks() {
     return this.bookmarks;
@@ -768,11 +820,6 @@ var Bookmarks = class {
   setBookmarks(bookmarks) {
     this.bookmarks = bookmarks;
     this.activeBookmark = null;
-    this.fileTable.updateTableContent();
-  }
-  clearFilter() {
-    this.activeBookmark = null;
-    this.fileTable.setFilteredFolders(this.fileTable.getAllFolders());
     this.fileTable.updateTableContent();
   }
   getActiveBookmark() {
@@ -803,7 +850,7 @@ var FileTable = class extends import_obsidian7.Component {
     this.paginationManager = new PaginationManager(this);
     this.sessionManager = new SessionManager(this, plugin);
     this.columnResizer = new ColumnResizer(this, plugin);
-    this.bookmarks = new Bookmarks(this);
+    this.bookmarks = new Bookmarks(this, plugin);
     if (this.plugin.settings.saveFoldersBetweenSessions) {
       this.sessionManager.loadSession();
     } else {
@@ -1158,6 +1205,7 @@ var FileTablePlugin = class extends import_obsidian9.Plugin {
   async updateFileTable() {
     console.log("Updating file table");
     const files = await this.getAllFilesInScannedFolders();
+    console.log(`Found ${files.length} files in scanned folders:`, this.settings.scannedFolders);
     if (this.fileTableView) {
       await this.fileTableView.updateFileTable(files, this.settings.groupByFolder);
     }

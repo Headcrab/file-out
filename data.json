@@ -6,20 +6,20 @@
     "fb2",
     "epub"
   ],
-  "groupByFolder": false,
+  "groupByFolder": true,
   "openLocation": "right",
   "cssFile": "altstyles.css",
   "scannedFolders": [
-    "Книги"
+    "Книги/Серия книг Проект Этногенез/Новеллы"
   ],
   "ignoredFolders": [],
   "saveFoldersBetweenSessions": true,
   "bookmarks": [
+    "этногенез",
+    "дракон",
+    "Громов",
     "Азимов",
-    "Этногенез",
-    "Эрт",
-    "fb2",
-    "Мечты"
+    "fb2"
   ],
   "fileTableSession": {
     "selectedFolders": [],
