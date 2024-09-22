@@ -9,11 +9,9 @@
   "groupByFolder": true,
   "openLocation": "right",
   "cssFile": "styles.css",
-  "scannedFolders": [
-    "Книги/Серия книг Проект Этногенез"
-  ],
+  "scannedFolders": [],
   "ignoredFolders": [],
-  "saveFoldersBetweenSessions": true,
+  "saveFoldersBetweenSessions": false,
   "fileTableSession": {
     "selectedFolders": [],
     "currentFolder": "",

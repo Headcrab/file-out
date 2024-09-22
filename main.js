@@ -27,10 +27,10 @@ __export(main_exports, {
   default: () => MainPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian10 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/FileTablePlugin.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/services/FileService.ts
 var import_obsidian = require("obsidian");
@@ -241,7 +241,15 @@ var FileTableRenderer = class {
     row.classList.add("folder-header");
     const cell = row.insertCell();
     cell.colSpan = 5;
-    cell.textContent = folder;
+    const folderParts = folder.split("/");
+    const folderName = folderParts[folderParts.length - 1] || "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430";
+    const folderPath = folderParts.slice(0, -1).join("/");
+    const folderNameEl = cell.createSpan({ cls: "folder-name" });
+    folderNameEl.textContent = folderName;
+    if (folderPath) {
+      const folderPathEl = cell.createSpan({ cls: "folder-path" });
+      folderPathEl.textContent = ` (${folderPath})`;
+    }
     const ignoreCell = row.insertCell();
     new import_obsidian3.ButtonComponent(ignoreCell).setIcon("cross").setTooltip("\u0418\u0433\u043D\u043E\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u0430\u043F\u043A\u0443").setClass("ignore-folder-button").onClick((e) => {
       e.stopPropagation();
@@ -250,8 +258,12 @@ var FileTableRenderer = class {
   }
   renderFileRow(tbody, file) {
     const row = tbody.insertRow();
-    row.addEventListener("click", () => this.onFileOpen(file.path));
-    this.createCell(row, file.name);
+    const nameCell = row.insertCell();
+    const nameLink = nameCell.createEl("a", { cls: "file-name-link", text: file.name });
+    nameLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.onFileOpen(file.path);
+    });
     this.createCell(row, file.extension);
     this.createCell(row, file.folder);
     this.createCell(row, file.createdAt.toLocaleString());
@@ -922,28 +934,6 @@ var FolderSuggestModal2 = class extends import_obsidian7.FuzzySuggestModal {
   }
 };
 
-// src/ui/FolderFilterModal.ts
-var import_obsidian8 = require("obsidian");
-var FolderFilterModal = class extends import_obsidian8.FuzzySuggestModal {
-  constructor(app, folderService, onChoose) {
-    super(app);
-    this.folderService = folderService;
-    this.onChoose = onChoose;
-  }
-  getItems() {
-    return ["", ...this.folderService.getFolders().map((folder) => folder.path)];
-  }
-  getItemText(item) {
-    return item || "\u041A\u043E\u0440\u043D\u0435\u0432\u0430\u044F \u043F\u0430\u043F\u043A\u0430";
-  }
-  onChooseItem(item, evt) {
-    this.onChoose(item);
-  }
-  renderSuggestion(item, el) {
-    el.setText(this.getItemText(item.item));
-  }
-};
-
 // src/FileTablePlugin.ts
 var DEFAULT_SETTINGS = {
   fileExtensions: ["pdf", "cdr", "eps"],
@@ -954,7 +944,8 @@ var DEFAULT_SETTINGS = {
   ignoredFolders: [],
   saveFoldersBetweenSessions: true
 };
-var FileTablePlugin = class extends import_obsidian9.Plugin {
+var FILE_TABLE_VIEW_TYPE = "file-table-view";
+var FileTablePlugin = class extends import_obsidian8.Plugin {
   constructor() {
     super(...arguments);
     this.currentStyleElement = null;
@@ -986,14 +977,39 @@ var FileTablePlugin = class extends import_obsidian9.Plugin {
     await this.loadSelectedCSS();
     this.registerEvent(this.app.workspace.on("quit", this.onQuit.bind(this)));
     this.addCommand({
-      id: "open-folder-filter-modal",
-      name: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043C\u043E\u0434\u0430\u043B\u044C\u043D\u043E\u0435 \u043E\u043A\u043D\u043E \u0444\u0438\u043B\u044C\u0442\u0440\u0430\u0446\u0438\u0438 \u043F\u043E \u043F\u0430\u043F\u043A\u0430\u043C",
+      id: "add-folder-to-file-table",
+      name: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443 \u0432 \u0442\u0430\u0431\u043B\u0438\u0446\u0443 \u0444\u0430\u0439\u043B\u043E\u0432",
       callback: () => {
-        new FolderFilterModal(this.app, this.folderService, (folder) => {
+        new FolderSuggestModal(this.app, async (folder) => {
+          await this.addScannedFolder(folder);
           if (this.fileTableView) {
             this.fileTableView.updateFileTable();
           }
         }).open();
+      }
+    });
+    this.addCommand({
+      id: "add-folder-to-ignored",
+      name: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443 \u0432 \u0438\u0433\u043D\u043E\u0440\u0438\u0440\u0443\u0435\u043C\u044B\u0435",
+      hotkeys: [{ modifiers: ["Ctrl", "Shift"], key: "I" }],
+      callback: () => {
+        new FolderSuggestModal(this.app, async (folder) => {
+          await this.addIgnoredFolder(folder);
+          if (this.fileTableView) {
+            this.fileTableView.updateFileTable();
+          }
+        }).open();
+      }
+    });
+    this.addCommand({
+      id: "clear-file-table",
+      name: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u0442\u0430\u0431\u043B\u0438\u0446\u0443 \u0444\u0430\u0439\u043B\u043E\u0432",
+      hotkeys: [{ modifiers: ["Ctrl", "Shift"], key: "C" }],
+      callback: async () => {
+        await this.clearFolders();
+        if (this.fileTableView) {
+          this.fileTableView.updateFileTable();
+        }
       }
     });
     this.registerEvent(this.app.workspace.on("quit", this.saveSettings.bind(this)));
@@ -1019,7 +1035,7 @@ var FileTablePlugin = class extends import_obsidian9.Plugin {
     }
     let cssContent;
     try {
-      const cssPath = (0, import_obsidian9.normalizePath)(this.manifest.dir + "/" + this.settings.cssFile);
+      const cssPath = (0, import_obsidian8.normalizePath)(this.manifest.dir + "/" + this.settings.cssFile);
       cssContent = await this.app.vault.adapter.read(cssPath);
     } catch (error) {
       console.error(`Failed to load CSS file: ${this.settings.cssFile}`, error);
@@ -1095,7 +1111,7 @@ var FileTablePlugin = class extends import_obsidian9.Plugin {
       this.app.workspace.revealLeaf(
         this.app.workspace.getLeavesOfType("empty")[0]
       );
-      (_a = this.app.workspace.getActiveViewOfType(import_obsidian9.ItemView)) == null ? void 0 : _a.leaf.setViewState({
+      (_a = this.app.workspace.getActiveViewOfType(import_obsidian8.ItemView)) == null ? void 0 : _a.leaf.setViewState({
         type: "empty",
         state: { settingTab }
       });
@@ -1121,15 +1137,19 @@ var FileTablePlugin = class extends import_obsidian9.Plugin {
     console.log("Unloading File Table Plugin");
     await this.saveSettings();
   }
-  // Добавим новые методы для управления папками
+  // Обновляем метод addScannedFolder
   async addScannedFolder(folder) {
-    var _a, _b;
     if (!this.settings.scannedFolders.includes(folder)) {
       this.settings.scannedFolders.push(folder);
       await this.saveSettings();
     }
-    (_b = (_a = this.fileTableView) == null ? void 0 : _a.getFolderManager()) == null ? void 0 : _b.addFolder(folder);
-    await this.updateFileTable();
+    if (this.fileTableView) {
+      const folderManager = this.fileTableView.getFolderManager();
+      if (folderManager) {
+        await folderManager.addFolder(folder);
+        await this.updateFileTable();
+      }
+    }
   }
   async removeScannedFolder(folder) {
     var _a, _b;
@@ -1155,8 +1175,7 @@ var FileTablePlugin = class extends import_obsidian9.Plugin {
     await this.updateFileTable();
   }
 };
-var FILE_TABLE_VIEW_TYPE = "file-table-view";
-var FileTableView = class extends import_obsidian9.ItemView {
+var FileTableView = class extends import_obsidian8.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -1212,7 +1231,7 @@ function debounce(func, wait, immediate) {
 }
 
 // src/main.ts
-var MainPlugin = class extends import_obsidian10.Plugin {
+var MainPlugin = class extends import_obsidian9.Plugin {
   async onload() {
     this.fileTablePlugin = new FileTablePlugin(this.app, this.manifest);
     await this.fileTablePlugin.onload();
