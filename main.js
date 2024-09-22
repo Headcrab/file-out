@@ -176,6 +176,14 @@ var FileTableRenderer = class {
     this.onFileOpen = onFileOpen;
     this.plugin = plugin;
     this.filterInputs = {};
+    this.columnNames = {
+      name: "\u0418\u043C\u044F",
+      extension: "\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435",
+      createdAt: "\u0421\u043E\u0437\u0434\u0430\u043D",
+      modifiedAt: "\u0418\u0437\u043C\u0435\u043D\u0435\u043D",
+      size: "\u0420\u0430\u0437\u043C\u0435\u0440",
+      folder: "\u041F\u0430\u043F\u043A\u0430"
+    };
   }
   renderHeader(table) {
     const thead = table.createTHead();
@@ -185,7 +193,7 @@ var FileTableRenderer = class {
       const th = row.createEl("th");
       th.dataset.column = column;
       const button = th.createEl("button");
-      button.textContent = this.capitalizeFirstLetter(column);
+      button.textContent = this.columnNames[column];
       const sortIndicator = button.createSpan({ cls: "sort-indicator" });
       button.addEventListener("click", () => {
         this.fileTable.getSorter().sortBy(column);
@@ -195,7 +203,7 @@ var FileTableRenderer = class {
         this.fileTable.saveTableState();
       });
       const input = th.createEl("input", { type: "text" });
-      input.placeholder = `\u0424\u0438\u043B\u044C\u0442\u0440 ${column}`;
+      input.placeholder = `\u0424\u0438\u043B\u044C\u0442\u0440 ${this.columnNames[column].toLowerCase()}`;
       this.filterInputs[column] = input;
       input.value = this.fileTable.getFilter().getFilters()[column] || "";
       input.addEventListener("input", (event) => {
